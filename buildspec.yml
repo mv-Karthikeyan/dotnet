@@ -1,0 +1,14 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      dotnet: 6.1  # Specify the .NET SDK version
+  build:
+    commands:
+      - dotnet restore
+      - dotnet build --configuration Release
+      - dotnet test --no-restore --verbosity normal
+artifacts:
+  files:
+    - '**/*'
