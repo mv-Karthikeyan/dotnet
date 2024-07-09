@@ -1,4 +1,4 @@
 #!/bin/bash
 # Example script to stop your .NET application
 
-sudo systemctl stop your-app-service
+sudo systemctl stop Groko-Api
