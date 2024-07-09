@@ -1,5 +1,5 @@
 #!/bin/bash
 # Example script to start your .NET application
 
-cd /home/ubuntu/your-app-name/src/YourDotNetProject
-dotnet run --project YourDotNetProject.csproj > /var/log/your-app.log 2>&1 &
+cd /home/ubuntu/dotnet/Groko-Api/src/Groko-Api
+dotnet run --project Groko-Api.csproj > /var/log/Groko-Api.log 2>&1 &
