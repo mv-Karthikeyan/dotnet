@@ -26,8 +26,8 @@ lint: ## 🔎 Lint & format, will not fix but sets exit code on error
 	dotnet format --verbosity diag ./src
 
 image: ## 🔨 Build container image from Dockerfile 
-	docker build . --file build/Dockerfile \
-	--tag $(IMAGE_REG)/$(IMAGE_REPO):$(IMAGE_TAG)
+	docker build . --file Dockerfile \
+	--tag $(IMAGE_REG)/$(IMAGE_REPO):$(IMAGE_TAG) 
 
 push: ## 📤 Push container image to registry 
 	docker push $(IMAGE_REG)/$(IMAGE_REPO):$(IMAGE_TAG)
