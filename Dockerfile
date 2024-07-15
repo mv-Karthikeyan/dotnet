@@ -1,48 +1,70 @@
-# =======================================================
-# Stage 1 - Build/compile app using container
-# =======================================================
+# Used by `image`, `push` & `deploy` targets, override as required
+IMAGE_REG ?= docker.io
+IMAGE_REPO ?= tejaswiomtri/dotnet
+IMAGE_TAG ?= latest
 
-ARG IMAGE_BASE=6.0-alpine
+# Used by `deploy` target, sets Azure webapp defaults, override as required
+AZURE_RES_GROUP ?= demoapps
+AZURE_REGION ?= northeurope
+AZURE_APP_NAME ?= dotnet-demoapp
 
-# Build image has SDK and tools (Linux)
-FROM mcr.microsoft.com/dotnet/sdk:$IMAGE_BASE as build
-WORKDIR /build
+# Used by `test-api` target
+TEST_HOST ?= localhost:5000
 
-# Copy project source files
-COPY src ./src
+# Don't change
+SRC_DIR := src
+TEST_DIR := tests
 
-# Restore, build & publish
-WORKDIR /build/src
-RUN dotnet restore
-RUN dotnet publish --no-restore --configuration Release
+.PHONY: help lint lint-fix image push run deploy undeploy test test-report test-api clean .EXPORT_ALL_VARIABLES
+.DEFAULT_GOAL := help
 
-# =======================================================
-# Stage 2 - Assemble runtime image from previous stage
-# =======================================================
+help: ## 💬 This help message
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
-# Base image is .NET Core runtime only (Linux)
-FROM mcr.microsoft.com/dotnet/aspnet:$IMAGE_BASE
+lint: ## 🔎 Lint & format, will not fix but sets exit code on error 
+	@dotnet format --help > /dev/null 2> /dev/null || dotnet tool install --global dotnet-format
+	dotnet format --verbosity diag ./src
 
-# Metadata in Label Schema format (http://label-schema.org)
-LABEL org.label-schema.name    = ".NET Core Demo Web App" \
-      org.label-schema.version = "1.5.0" \
-      org.label-schema.vendor  = "Ben Coleman" \
-      org.opencontainers.image.source = "https://github.com/benc-uk/dotnet-demoapp"
+image: ## 🔨 Build container image from Dockerfile 
+	docker build . --file build/Dockerfile \
+	--tag $(IMAGE_REG)/$(IMAGE_REPO):$(IMAGE_TAG)
 
-# Seems as good a place as any
-WORKDIR /app
+push: ## 📤 Push container image to registry 
+	docker push $(IMAGE_REG)/$(IMAGE_REPO):$(IMAGE_TAG)
 
-# Copy already published binaries (from build stage image)
-COPY --from=build /build/src/bin/Release/net6.0/publish/ .
+run: ## 🏃‍ Run locally using Dotnet CLI
+	dotnet watch --project $(SRC_DIR)/dotnet-demoapp.csproj
 
-# Expose port 5000 from Kestrel webserver
-EXPOSE 5000
+deploy: ## 🚀 Deploy to Azure Container App 
+	az group create --resource-group $(AZURE_RES_GROUP) --location $(AZURE_REGION) -o table
+	az deployment group create --template-file deploy/container-app.bicep \
+		--resource-group $(AZURE_RES_GROUP) \
+		--parameters appName=$(AZURE_APP_NAME) \
+		--parameters image=$(IMAGE_REG)/$(IMAGE_REPO):$(IMAGE_TAG) -o table
+	@sleep 1
+	@echo "### 🚀 App deployed & available here: $(shell az deployment group show --resource-group $(AZURE_RES_GROUP) --name container-app --query "properties.outputs.appURL.value" -o tsv)/"
 
-# Tell Kestrel to listen on port 5000 and serve plain HTTP
-ENV ASPNETCORE_URLS http://*:5000
-ENV ASPNETCORE_ENVIRONMENT Production
-# This is critical for the Azure AD signin flow to work in Kubernetes and App Service
-ENV ASPNETCORE_FORWARDEDHEADERS_ENABLED=true
+undeploy: ## 💀 Remove from Azure 
+	@echo "### WARNING! Going to delete $(AZURE_RES_GROUP) 😲"
+	az group delete -n $(AZURE_RES_GROUP) -o table --no-wait
 
-# Run the ASP.NET Core app
-ENTRYPOINT dotnet dotnet-demoapp.dll
+test: ## 🎯 Unit tests with xUnit
+	dotnet test tests/tests.csproj 
+
+test-report: ## 🤡 Unit tests with xUnit & output report
+	rm -rf $(TEST_DIR)/TestResults
+	dotnet test $(TEST_DIR)/tests.csproj --test-adapter-path:. --logger:junit --logger:html
+
+test-api: .EXPORT_ALL_VARIABLES ##🚦 Run integration API tests, server must be running!
+	cd tests \
+	&& npm install newman \
+	&& ./node_modules/.bin/newman run ./postman_collection.json --env-var apphost=$(TEST_HOST)
+
+clean: ## 🧹 Clean up project
+	rm -rf $(TEST_DIR)/node_modules
+	rm -rf $(TEST_DIR)/package*
+	rm -rf $(TEST_DIR)/TestResults
+	rm -rf $(TEST_DIR)/bin
+	rm -rf $(TEST_DIR)/obj
+	rm -rf $(SRC_DIR)/bin
+	rm -rf $(SRC_DIR)/obj
