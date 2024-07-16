@@ -7,14 +7,15 @@ EXPOSE 5078
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
-# Copy the entire project structure
-COPY . .
+# Copy only the project file to perform the restore
+COPY ["Groko.Api/Groko.Api.csproj", "Groko.Api/"]
 
 # Restore dependencies for the main project
 WORKDIR /src/Groko.Api
 RUN dotnet restore
 
-# Build the project
+# Copy the remaining files and build the project
+COPY . .
 RUN dotnet build "Groko.Api.csproj" -c Release -o /app/build
 
 # Stage 2: Publish the application
