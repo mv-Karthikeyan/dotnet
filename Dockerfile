@@ -6,12 +6,18 @@ EXPOSE 5078
 # Use the official ASP.NET Core SDK image to build the app
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
-COPY ["Groko.Api.csproj", "./"]
-RUN dotnet restore "./Groko.Api.csproj"
+
+# Copy the entire project structure
 COPY . .
-WORKDIR "/src/."
+
+# Restore dependencies for the main project
+WORKDIR /src/Groko.Api
+RUN dotnet restore
+
+# Build the project
 RUN dotnet build "Groko.Api.csproj" -c Release -o /app/build
 
+# Publish the project
 FROM build AS publish
 RUN dotnet publish "Groko.Api.csproj" -c Release -o /app/publish
 
