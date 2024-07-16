@@ -1,10 +1,10 @@
 # Use the official ASP.NET Core runtime image as a parent image
-FROM mcr.microsoft.com/dotnet/aspnet:7.0 AS base
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS base
 WORKDIR /app
 EXPOSE 5078
 
 # Use the official ASP.NET Core SDK image to build the app
-FROM mcr.microsoft.com/dotnet/sdk:7.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 COPY ["Groko.Api.csproj", "./"]
 RUN dotnet restore "./Groko.Api.csproj"
